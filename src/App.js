@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase";
-
+ 
 // ═══════════════════════════════════════════════════
 // CONSTANTS & HELPERS
 // ═══════════════════════════════════════════════════
@@ -18,7 +18,7 @@ const ACTIVITY_LEVELS = [
   { label: "Very Active (6–7 days/week)", value: 1.725 },
 ];
 const MOODS = ["Excellent", "Good", "Okay", "Tired", "Stressed", "Bad"];
-
+ 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
@@ -117,7 +117,7 @@ function getDaysInMonth(yr, mo) {
   }
   return days;
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // SUPABASE DB HELPERS
 // ═══════════════════════════════════════════════════
@@ -245,21 +245,14 @@ async function dbGetWeeklyPoints(users, weekStartDate) {
   });
   return pts;
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // AI FUNCTIONS
 // ═══════════════════════════════════════════════════
 async function callClaude(prompt, maxTokens = 1000) {
-  // Use /api/claude proxy in production, direct call in development
-  const url = process.env.NODE_ENV === 'production'
-    ? '/api/claude'
-    : 'https://api.anthropic.com/v1/messages';
-
-  const headers = { "Content-Type": "application/json" };
-
-  const res = await fetch(url, {
+  const res = await fetch('/api/claude', {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-opus-4-5",
       max_tokens: maxTokens,
@@ -273,7 +266,7 @@ async function callClaude(prompt, maxTokens = 1000) {
   const data = await res.json();
   return data.content?.[0]?.text || "";
 }
-
+ 
 async function estimateMealNutrition(mealText) {
   const raw = await callClaude(
     `Nutrition expert. Estimate macros for: "${mealText}"
@@ -287,7 +280,7 @@ Reference: 1 egg=70cal/6gP/0gC/5gF, 1 roti=80cal/3gP/15gC/1gF, 1 cup rice=200cal
   if (s === -1 || e === -1) throw new Error("Bad JSON from AI");
   return JSON.parse(raw.slice(s, e + 1));
 }
-
+ 
 async function generateReport(
   user,
   mealsList,
@@ -329,7 +322,7 @@ async function generateReport(
           )
           .join("\n")
       : "No meals logged";
-
+ 
   return await callClaude(
     `You are a warm Indian health coach. Write a daily health report.
 User: ${user.name}, ${user.age}y, ${user.weight}kg, Goal: ${user.goal}
@@ -338,7 +331,7 @@ Meals: ${mealsDesc}
 Totals: ${totalCal}kcal, ${totalPro}g protein, ${totalCarb}g carbs, ${totalFat}g fats
 Exercise: ${exercise || "none"} | Water: ${water}gl | Sleep: ${sleep}h | Mood: ${mood} | Streak: ${streak}d
 Notes: ${notes || "none"}
-
+ 
 Write with these EXACT headers:
 🌅 DAILY SUMMARY
 ✅ GOOD HIGHLIGHTS
@@ -347,12 +340,12 @@ Write with these EXACT headers:
 💪 EXERCISE VERDICT
 🎯 GOAL PROGRESS
 📋 TOMORROW'S FOCUS
-
+ 
 Warm, Indian-context, specific. Max 350 words.`,
     1000
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // NOTIFICATION HELPER
 // ═══════════════════════════════════════════════════
@@ -378,7 +371,7 @@ function checkNotif(userId, timeStr) {
     localStorage.setItem(lastKey, todayStr());
   }
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // STYLES (defined once at module level — never recreated)
 // ═══════════════════════════════════════════════════
@@ -430,7 +423,7 @@ const STITLE = {
   letterSpacing: 0.9,
   marginBottom: 10,
 };
-
+ 
 // ═══════════════════════════════════════════════════
 // SHARED UI COMPONENTS
 // ═══════════════════════════════════════════════════
@@ -474,8 +467,8 @@ function Card({ children, style = {} }) {
     </div>
   );
 }
-
-
+ 
+ 
 // ═══════════════════════════════════════════════════
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════
@@ -484,7 +477,7 @@ function LoginScreen({ onLogin }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-
+ 
   async function go() {
     if (!un || !pw) return;
     setLoading(true);
@@ -497,7 +490,7 @@ function LoginScreen({ onLogin }) {
     }
     setLoading(false);
   }
-
+ 
   return (
     <div
       style={{
@@ -597,7 +590,7 @@ function LoginScreen({ onLogin }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // ADMIN PANEL
 // ═══════════════════════════════════════════════════
@@ -615,7 +608,7 @@ function AdminPanel({ currentUser, onLogout }) {
   const [weekPts, setWeekPts] = useState({});
   const wk = weekStart();
   const F = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
+ 
   const loadUsers = useCallback(async () => {
     setLoading(true);
     const u = await dbGetAllUsers();
@@ -626,9 +619,9 @@ function AdminPanel({ currentUser, onLogout }) {
     }
     setLoading(false);
   }, [wk]);
-
+ 
   useEffect(() => { loadUsers(); }, [loadUsers]);
-
+ 
   async function create() {
     if (!form.id || !form.name || !form.password || !form.age || !form.weight || !form.height) {
       setMsg("Please fill all fields.");
@@ -648,31 +641,31 @@ function AdminPanel({ currentUser, onLogout }) {
       setMsg("Error: " + e.message);
     }
   }
-
+ 
   async function del(id) {
     if (!window.confirm("Delete " + id + "?")) return;
     await dbDeleteUser(id);
     loadUsers();
   }
-
+ 
   async function viewLogs(user) {
     setViewUser(user);
     setTab("logs");
     const logs = await dbGetAllLogs(user.id);
     setUserLogs(logs);
   }
-
+ 
   const lb = [...users]
     .map((u) => ({ ...u, pts: weekPts[u.id] || 0 }))
     .sort((a, b) => b.pts - a.pts);
-
+ 
   const NAV = [
     { id: "members", l: "👥 Members" },
     { id: "create", l: "➕ Add Member" },
     { id: "leaderboard", l: "🏆 Leaderboard" },
     { id: "logs", l: "📋 Logs" },
   ];
-
+ 
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'DM Sans',sans-serif" }}>
       <style>{CSS}</style>
@@ -694,7 +687,7 @@ function AdminPanel({ currentUser, onLogout }) {
         ))}
       </div>
       <div style={{ padding: "1.5rem", maxWidth: 860, margin: "0 auto" }}>
-
+ 
         {/* MEMBERS */}
         {tab === "members" && (
           <div style={{ animation: "fadeUp 0.3s ease" }}>
@@ -735,7 +728,7 @@ function AdminPanel({ currentUser, onLogout }) {
             )}
           </div>
         )}
-
+ 
         {/* ADD MEMBER */}
         {tab === "create" && (
           <div style={{ animation: "fadeUp 0.3s ease", maxWidth: 460 }}>
@@ -777,7 +770,7 @@ function AdminPanel({ currentUser, onLogout }) {
             </Card>
           </div>
         )}
-
+ 
         {/* LEADERBOARD */}
         {tab === "leaderboard" && (
           <div style={{ animation: "fadeUp 0.3s ease" }}>
@@ -801,7 +794,7 @@ function AdminPanel({ currentUser, onLogout }) {
             </div>
           </div>
         )}
-
+ 
         {/* LOGS */}
         {tab === "logs" && (
           <div style={{ animation: "fadeUp 0.3s ease" }}>
@@ -846,7 +839,7 @@ function AdminPanel({ currentUser, onLogout }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // CALENDAR VIEW
 // ═══════════════════════════════════════════════════
@@ -859,13 +852,13 @@ function CalView({ logs, user, onSelect, selected }) {
   const firstDow = new Date(yr, mo, 1).getDay();
   const cells = Array(firstDow).fill(null).concat(days);
   const mName = new Date(yr, mo, 1).toLocaleString("default", { month: "long" });
-
+ 
   function prev() { if (mo === 0) { setYr((y) => y - 1); setMo(11); } else setMo((m) => m - 1); }
   function next() { if (mo === 11) { setYr((y) => y + 1); setMo(0); } else setMo((m) => m + 1); }
-
+ 
   const logMap = {};
   logs.forEach((l) => { logMap[l.date] = l; });
-
+ 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -904,7 +897,7 @@ function CalView({ logs, user, onSelect, selected }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // DAY REPORT DETAIL
 // ═══════════════════════════════════════════════════
@@ -918,7 +911,7 @@ function DayReport({ log, user, wt, tCal, tPro, tCar, tFat }) {
   const totalPro = mealsList.reduce((s, m) => s + (m.nutrition?.protein || 0), 0);
   const totalCarb = mealsList.reduce((s, m) => s + (m.nutrition?.carbs || 0), 0);
   const totalFat = mealsList.reduce((s, m) => s + (m.nutrition?.fats || 0), 0);
-
+ 
   return (
     <div style={{ animation: "fadeUp 0.3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem", flexWrap: "wrap" }}>
@@ -1008,7 +1001,7 @@ function DayReport({ log, user, wt, tCal, tPro, tCar, tFat }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // LOG TAB — all raw HTML inputs, no wrapper components
 // ═══════════════════════════════════════════════════
@@ -1032,7 +1025,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
   const [notifTime, setNotifTime] = useState("");
   const [notifSaved, setNotifSaved] = useState(false);
   const wk = weekStart();
-
+ 
   useEffect(() => {
     async function load() {
       const [log, wt, meas, nt] = await Promise.all([
@@ -1057,18 +1050,18 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
     }
     load();
   }, [currentUser.id, today, wk]);
-
+ 
   useEffect(() => {
     if (!notifTime) return;
     const iv = setInterval(() => checkNotif(currentUser.id, notifTime), 10000);
     return () => clearInterval(iv);
   }, [notifTime, currentUser.id]);
-
+ 
   async function persistMeals(updated) {
     await dbSaveLog(currentUser.id, today, { meals: updated, exercise, water, sleep, mood, notes });
     onSaved();
   }
-
+ 
   async function addMeal() {
     if (!newMeal.trim()) return;
     const meal = { description: newMeal.trim(), nutrition: null, estimating: true };
@@ -1087,27 +1080,27 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
       setMeals(failed);
     }
   }
-
+ 
   async function removeMeal(idx) {
     const updated = meals.filter((_, i) => i !== idx);
     setMeals(updated);
     await persistMeals(updated);
   }
-
+ 
   async function saveWt() {
     if (!todayWt) return;
     await dbSaveWeight(currentUser.id, today, +todayWt);
     setWtSaved(true);
     onSaved();
   }
-
+ 
   async function saveMeas() {
     if (!waist && !chest && !hips) return;
     await dbSaveMeasurement(currentUser.id, wk, { waist: +waist, chest: +chest, hips: +hips });
     setMSaved(true);
     onSaved();
   }
-
+ 
   async function saveNotif() {
     if (!notifTime) return;
     if ("Notification" in window && Notification.permission !== "granted") {
@@ -1116,7 +1109,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
     await dbSaveNotifTime(currentUser.id, notifTime);
     setNotifSaved(true);
   }
-
+ 
   async function saveLog() {
     setSaving(true);
     const readyMeals = meals.filter((m) => !m.estimating);
@@ -1131,21 +1124,21 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
     setSaving(false);
     onSaved();
   }
-
+ 
   const totalCal = meals.reduce((s, m) => s + (m.nutrition?.calories || 0), 0);
   const totalPro = meals.reduce((s, m) => s + (m.nutrition?.protein || 0), 0);
   const totalCarb = meals.reduce((s, m) => s + (m.nutrition?.carbs || 0), 0);
   const totalFat = meals.reduce((s, m) => s + (m.nutrition?.fats || 0), 0);
-
+ 
   if (!ready) return <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Spin /></div>;
-
+ 
   return (
     <div style={{ animation: "fadeUp 0.3s ease" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.1rem" }}>
         <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#fbbf24", fontSize: 21 }}>Today — {today}</h2>
         {saved && <Tag color="#22c55e">✓ Logged</Tag>}
       </div>
-
+ 
       {/* WEIGHT */}
       <div style={SECTION}>
         <p style={STITLE}>⚖️ Today's Weight</p>
@@ -1158,7 +1151,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
         </div>
         <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 6 }}>Weigh first thing in the morning for accuracy</p>
       </div>
-
+ 
       {/* MEASUREMENTS */}
       <div style={SECTION}>
         <p style={STITLE}>📏 Weekly Measurements (cm) — week of {wk}</p>
@@ -1171,7 +1164,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
           {mSaved ? "✓ Measurements Saved" : "Save Measurements"}
         </button>
       </div>
-
+ 
       {/* MEALS */}
       <div style={SECTION}>
         <p style={STITLE}>🍽️ Meals Today</p>
@@ -1240,13 +1233,13 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
         </div>
         <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 5 }}>Press Enter or click + Add Meal · AI estimates nutrition automatically</p>
       </div>
-
+ 
       {/* EXERCISE */}
       <div style={SECTION}>
         <p style={STITLE}>🏋️ Exercise Today</p>
         <textarea value={exercise} onChange={(e) => { setExercise(e.target.value); setSaved(false); }} placeholder="e.g. 45 min gym — chest + triceps. Bench press 4x10, cable flyes 3x12, 15 min incline walk..." style={{ ...TS, minHeight: 70 }} />
       </div>
-
+ 
       {/* WATER + SLEEP */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         <div style={{ ...CARD, padding: "1rem 1.2rem" }}>
@@ -1264,7 +1257,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
           <input type="range" min={0} max={12} value={sleep} onChange={(e) => { setSleep(+e.target.value); setSaved(false); }} style={{ width: "100%", accentColor: "#a78bfa" }} />
         </div>
       </div>
-
+ 
       {/* MOOD + NOTES */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         <div style={{ ...CARD, padding: "1rem 1.2rem" }}>
@@ -1278,7 +1271,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
           <input value={notes} onChange={(e) => { setNotes(e.target.value); setSaved(false); }} placeholder="Anything else..." style={IS} />
         </div>
       </div>
-
+ 
       {/* NOTIFICATION */}
       <div style={SECTION}>
         <p style={STITLE}>🔔 Daily Weight Reminder</p>
@@ -1290,7 +1283,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
           </button>
         </div>
       </div>
-
+ 
       <button onClick={saveLog} disabled={saving} style={{ width: "100%", padding: "13px", fontSize: 15, fontFamily: "'DM Sans',sans-serif", fontWeight: 700, border: "none", borderRadius: 12, cursor: saving ? "not-allowed" : "pointer", background: saving ? "rgba(251,191,36,0.35)" : "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0d1a00", opacity: saving ? 0.7 : 1 }}>
         {saving ? "⏳ Generating AI Coach Report..." : saved ? "✅ Saved! Update Log" : "💾 Save Log & Generate AI Report →"}
       </button>
@@ -1298,7 +1291,7 @@ function LogTab({ currentUser, user, tCal, tPro, tCar, tFat, streak, today, onSa
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // REPORT TAB
 // ═══════════════════════════════════════════════════
@@ -1309,7 +1302,7 @@ function ReportTab({ currentUser, user, tCal, tPro, tCar, tFat }) {
   const [selLog, setSelLog] = useState(null);
   const [selWt, setSelWt] = useState(null);
   const [loading, setLoading] = useState(true);
-
+ 
   useEffect(() => {
     async function load() {
       const [allLogs, allWts] = await Promise.all([dbGetAllLogs(currentUser.id), dbGetAllWeights(currentUser.id)]);
@@ -1323,16 +1316,16 @@ function ReportTab({ currentUser, user, tCal, tPro, tCar, tFat }) {
     }
     load();
   }, [currentUser.id]);
-
+ 
   function handleSelect(date) {
     setSel(date);
     const log = logs.find((l) => l.date === date) || null;
     setSelLog(log);
     setSelWt(weights[date] || null);
   }
-
+ 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Spin /></div>;
-
+ 
   return (
     <div style={{ animation: "fadeUp 0.3s ease" }}>
       <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#fbbf24", marginBottom: "1rem", fontSize: 21 }}>📊 My Reports</h2>
@@ -1346,7 +1339,7 @@ function ReportTab({ currentUser, user, tCal, tPro, tCar, tFat }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // RANKINGS TAB
 // ═══════════════════════════════════════════════════
@@ -1355,7 +1348,7 @@ function RankingsTab({ currentUser, user }) {
   const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(true);
   const wk = weekStart(), today = todayStr();
-
+ 
   useEffect(() => {
     async function load() {
       const users = await dbGetAllUsers();
@@ -1370,10 +1363,10 @@ function RankingsTab({ currentUser, user }) {
     }
     load();
   }, [currentUser.id, user, wk, today]);
-
+ 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Spin /></div>;
   const leader = lb[0];
-
+ 
   return (
     <div style={{ animation: "fadeUp 0.3s ease" }}>
       <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#fbbf24", marginBottom: 5, fontSize: 21 }}>🏆 Family Rankings</h2>
@@ -1436,7 +1429,7 @@ function RankingsTab({ currentUser, user }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════
@@ -1446,7 +1439,7 @@ function SettingsTab({ currentUser, user, tCal, tPro, curBMI, bmiI }) {
   const [loading, setLoading] = useState(true);
   const tdee = calcTDEE(user.weight, user.height, user.age, user.gender, user.activity);
   const tgt = calcTarget(tdee, user.goal);
-
+ 
   useEffect(() => {
     async function load() {
       const [wts, ms] = await Promise.all([dbGetAllWeights(currentUser.id), dbGetAllMeasurements(currentUser.id)]);
@@ -1456,14 +1449,14 @@ function SettingsTab({ currentUser, user, tCal, tPro, curBMI, bmiI }) {
     }
     load();
   }, [currentUser.id]);
-
+ 
   const wtVals = weights.map((w) => w.weight);
   const wMin = wtVals.length ? Math.min(...wtVals) - 1 : 50;
   const wMax = wtVals.length ? Math.max(...wtVals) + 1 : 100;
   const cW = 400, cH = 90;
-
+ 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Spin /></div>;
-
+ 
   return (
     <div style={{ animation: "fadeUp 0.3s ease" }}>
       <h2 style={{ fontFamily: "'Playfair Display',serif", color: "#fbbf24", marginBottom: "1.1rem", fontSize: 21 }}>⚙️ Profile & Settings</h2>
@@ -1516,7 +1509,7 @@ function SettingsTab({ currentUser, user, tCal, tPro, curBMI, bmiI }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // USER DASHBOARD
 // ═══════════════════════════════════════════════════
@@ -1524,7 +1517,7 @@ function UserDashboard({ currentUser, onLogout }) {
   const [tab, setTab] = useState("log");
   const [refreshKey, setRefreshKey] = useState(0);
   const onSaved = useCallback(() => setRefreshKey((k) => k + 1), []);
-
+ 
   const today = todayStr();
   const user = currentUser;
   const tdee = calcTDEE(user.weight, user.height, user.age, user.gender, user.activity);
@@ -1532,12 +1525,12 @@ function UserDashboard({ currentUser, onLogout }) {
   const tPro = pTarget(user.weight, user.goal);
   const tCar = cTarget(tdee, user.goal);
   const tFat = fTarget(tdee, user.goal);
-
+ 
   const [streak, setStreak] = useState(0);
   const [myPts, setMyPts] = useState(0);
   const [myRank, setMyRank] = useState(1);
   const [latestWt, setLatestWt] = useState(user.weight);
-
+ 
   useEffect(() => {
     async function loadStats() {
       const wk = weekStart();
@@ -1569,7 +1562,7 @@ function UserDashboard({ currentUser, onLogout }) {
     }
     loadStats();
   }, [currentUser.id, refreshKey, user]);
-
+ 
   const curBMI = calcBMI(latestWt, user.height);
   const bmiI = bmiCat(curBMI);
   const NAV = [
@@ -1578,7 +1571,7 @@ function UserDashboard({ currentUser, onLogout }) {
     { id: "rankings", l: "🏆 Rankings" },
     { id: "settings", l: "⚙️ Settings" },
   ];
-
+ 
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'DM Sans',sans-serif" }}>
       <style>{CSS}</style>
@@ -1623,13 +1616,13 @@ function UserDashboard({ currentUser, onLogout }) {
     </div>
   );
 }
-
+ 
 // ═══════════════════════════════════════════════════
 // APP ROOT
 // ═══════════════════════════════════════════════════
 export default function App() {
   const [session, setSession] = useState(null);
-
+ 
   // Restore session from localStorage on page load
   useEffect(() => {
     const saved = localStorage.getItem("fitfamily_session");
@@ -1637,7 +1630,7 @@ export default function App() {
       try { setSession(JSON.parse(saved)); } catch {}
     }
   }, []);
-
+ 
   function handleLogin(user) {
     localStorage.setItem("fitfamily_session", JSON.stringify(user));
     setSession(user);
@@ -1646,8 +1639,9 @@ export default function App() {
     localStorage.removeItem("fitfamily_session");
     setSession(null);
   }
-
+ 
   if (!session) return <LoginScreen onLogin={handleLogin} />;
   if (session.is_admin) return <AdminPanel currentUser={session} onLogout={handleLogout} />;
   return <UserDashboard currentUser={session} onLogout={handleLogout} />;
 }
+ 
