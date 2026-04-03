@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase";
 
 // ═══════════════════════════════════════════════════
@@ -250,9 +250,16 @@ async function dbGetWeeklyPoints(users, weekStartDate) {
 // AI FUNCTIONS
 // ═══════════════════════════════════════════════════
 async function callClaude(prompt, maxTokens = 1000) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  // Use /api/claude proxy in production, direct call in development
+  const url = process.env.NODE_ENV === 'production'
+    ? '/api/claude'
+    : 'https://api.anthropic.com/v1/messages';
+
+  const headers = { "Content-Type": "application/json" };
+
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       model: "claude-opus-4-5",
       max_tokens: maxTokens,
