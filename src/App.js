@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase";
 
 // ═══════════════════════════════════════════════════
@@ -467,22 +467,7 @@ function Card({ children, style = {} }) {
     </div>
   );
 }
-function MacroBar({ label, value, target, color }) {
-  const pct = Math.min(100, target > 0 ? Math.round(((value || 0) / target) * 100) : 0);
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{label}</span>
-        <span style={{ color, fontSize: 12, fontWeight: 600 }}>
-          {value || 0} / {target}
-        </span>
-      </div>
-      <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3 }}>
-        <div style={{ height: 5, background: color, borderRadius: 3, width: pct + "%", transition: "width 0.5s" }} />
-      </div>
-    </div>
-  );
-}
+
 
 // ═══════════════════════════════════════════════════
 // LOGIN SCREEN
