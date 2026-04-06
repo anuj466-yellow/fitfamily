@@ -89,7 +89,6 @@ async function dbAcceptFollow(ferId,fingId){await supabase.from("follows").updat
 async function dbGetFollowRequests(userId){const{data}=await supabase.from("follows").select("*, profiles!follows_follower_id_fkey(id,name)").eq("following_id",userId).eq("status","pending");return data||[];}
 async function dbGetFollowers(userId){const{data}=await supabase.from("follows").select("*, profiles!follows_follower_id_fkey(id,name,goal)").eq("following_id",userId).eq("status","accepted");return data||[];}
 async function dbGetFollowing(userId){const{data}=await supabase.from("follows").select("*, profiles!follows_following_id_fkey(id,name,goal)").eq("follower_id",userId).eq("status","accepted");return data||[];}
-async function dbSearchUsers(query,currentUserId){const{data}=await supabase.from("profiles").select("id,name,goal,is_public,community_id,communities(name)").eq("is_public",true).neq("id",currentUserId).neq("is_admin",true).ilike("id",`%${query}%`).limit(10);return data||[];}
 async function dbCreateChallenge(challenge){const{data,error}=await supabase.from("challenges").insert(challenge).select().single();if(error)throw new Error(error.message);return data;}
 async function dbGetChallengeByCode(code){const{data}=await supabase.from("challenges").select("*, profiles!challenges_creator_id_fkey(name)").eq("join_code",code.toUpperCase()).single();return data;}
 async function dbJoinChallenge(challengeId,userId){const{error}=await supabase.from("challenge_members").upsert({challenge_id:challengeId,user_id:userId},{onConflict:"challenge_id,user_id"});if(error)throw new Error(error.message);}
@@ -844,7 +843,6 @@ function ChallengesTab({currentUser,user}){
     setMembers(m);
     // Build leaderboard based on goal type
     const userProfiles=m.map(cm=>cm.profiles).filter(Boolean);
-    const pts=await dbGetWeeklyPoints(userProfiles,challenge.start_date);
     // For each member, fetch all logs within challenge window to sum points
     const logPromises=userProfiles.map(async u=>{
       const{data}=await supabase.from("daily_logs").select("meals,exercise,water,sleep").gte("date",challenge.start_date).lte("date",challenge.end_date).eq("user_id",u.id);
